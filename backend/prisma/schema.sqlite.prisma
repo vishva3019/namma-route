@@ -1,0 +1,314 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Agency {
+  id       String  @id
+  name     String
+  url      String
+  timezone String  @default("Asia/Kolkata")
+  lang     String  @default("en")
+  phone    String?
+  routes   Route[]
+}
+
+model Route {
+  id               String         @id @default(cuid())
+  routeId          String         @unique
+  routeShortName   String
+  routeLongName    String
+  routeDisplayName String
+  routeFamily      String
+  serviceType      String?
+  routeType        Int            @default(3)
+  agencyId         String?
+  origin           String?
+  destination      String?
+  color            String?
+  textColor        String?
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+  etas             ETA[]
+  fares            Fare[]
+  agency           Agency?        @relation(fields: [agencyId], references: [id])
+  variants         RouteVariant[]
+  trips            Trip[]
+  vehicles         Vehicle[]
+
+  @@index([routeShortName])
+  @@index([routeFamily])
+  @@index([agencyId])
+}
+
+model RouteVariant {
+  id                  String      @id @default(cuid())
+  routeId             String
+  variantCode         String
+  direction           Int         @default(0)
+  directionName       String?
+  originStopId        String?
+  destinationStopId   String?
+  originName          String?
+  destinationName     String?
+  shapeId             String?
+  geometry            String?
+  totalDistanceMeters Float?
+  stopCount           Int         @default(0)
+  routeStops          RouteStop[]
+  shape               Shape?      @relation(fields: [shapeId], references: [shapeId])
+  destinationStop     Stop?       @relation("VariantDestination", fields: [destinationStopId], references: [id])
+  originStop          Stop?       @relation("VariantOrigin", fields: [originStopId], references: [id])
+  route               Route       @relation(fields: [routeId], references: [id], onDelete: Cascade)
+  trips               Trip[]
+
+  @@unique([routeId, variantCode])
+  @@index([routeId, direction])
+  @@index([shapeId])
+}
+
+model RouteStop {
+  id               String       @id @default(cuid())
+  variantId        String
+  stopId           String
+  stopSequence     Int
+  distanceTraveled Float?
+  stop             Stop         @relation(fields: [stopId], references: [id], onDelete: Cascade)
+  variant          RouteVariant @relation(fields: [variantId], references: [id], onDelete: Cascade)
+
+  @@unique([variantId, stopSequence])
+  @@index([variantId, stopSequence])
+  @@index([stopId])
+  @@index([variantId, stopId])
+}
+
+model Stop {
+  id             String         @id @default(cuid())
+  stopId         String         @unique
+  name           String
+  nameKannada    String?
+  normalizedName String
+  description    String?
+  latitude       Float
+  longitude      Float
+  zoneId         String?
+  platformCode   String?
+  parentStation  String?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  etas           ETA[]
+  routeStops     RouteStop[]
+  variantDests   RouteVariant[] @relation("VariantDestination")
+  variantOrigins RouteVariant[] @relation("VariantOrigin")
+  aliases        StopAlias[]
+  stopTimes      StopTime[]
+
+  @@index([normalizedName])
+  @@index([name])
+  @@index([latitude, longitude])
+  @@index([stopId])
+}
+
+model StopAlias {
+  id              String @id @default(cuid())
+  alias           String
+  normalizedAlias String
+  canonicalStopId String
+  language        String @default("en")
+  source          String @default("MANUAL")
+  confidence      Float  @default(1.0)
+  stop            Stop   @relation(fields: [canonicalStopId], references: [id], onDelete: Cascade)
+
+  @@index([normalizedAlias])
+  @@index([canonicalStopId])
+}
+
+model Trip {
+  id           String          @id @default(cuid())
+  tripId       String          @unique
+  routeId      String
+  variantId    String?
+  serviceId    String
+  tripHeadsign String?
+  direction    Int             @default(0)
+  shapeId      String?
+  stopTimes    StopTime[]
+  service      ServiceCalendar @relation(fields: [serviceId], references: [serviceId])
+  variant      RouteVariant?   @relation(fields: [variantId], references: [id])
+  route        Route           @relation(fields: [routeId], references: [id], onDelete: Cascade)
+  vehicles     Vehicle[]
+
+  @@index([routeId, direction])
+  @@index([variantId])
+  @@index([serviceId])
+  @@index([shapeId])
+}
+
+model StopTime {
+  id            String @id @default(cuid())
+  tripId        String
+  stopId        String
+  stopSequence  Int
+  arrivalTime   String
+  departureTime String
+  pickupType    Int    @default(0)
+  dropOffType   Int    @default(0)
+  stop          Stop   @relation(fields: [stopId], references: [id], onDelete: Cascade)
+  trip          Trip   @relation(fields: [tripId], references: [id], onDelete: Cascade)
+
+  @@index([tripId, stopSequence])
+  @@index([stopId])
+  @@index([tripId])
+}
+
+model Shape {
+  id          String         @id @default(cuid())
+  shapeId     String         @unique
+  pointsCount Int            @default(0)
+  geometry    String?
+  variants    RouteVariant[]
+  points      ShapePoint[]
+
+  @@index([shapeId])
+}
+
+model ShapePoint {
+  id           String @id @default(cuid())
+  shapeId      String
+  latitude     Float
+  longitude    Float
+  sequence     Int
+  distTraveled Float?
+  shape        Shape  @relation(fields: [shapeId], references: [shapeId], onDelete: Cascade)
+
+  @@index([shapeId, sequence])
+}
+
+model ServiceCalendar {
+  id         String             @id @default(cuid())
+  serviceId  String             @unique
+  monday     Boolean            @default(true)
+  tuesday    Boolean            @default(true)
+  wednesday  Boolean            @default(true)
+  thursday   Boolean            @default(true)
+  friday     Boolean            @default(true)
+  saturday   Boolean            @default(true)
+  sunday     Boolean            @default(true)
+  startDate  String
+  endDate    String
+  exceptions ServiceException[]
+  trips      Trip[]
+}
+
+model ServiceException {
+  id            String          @id @default(cuid())
+  serviceId     String
+  date          String
+  exceptionType Int
+  calendar      ServiceCalendar @relation(fields: [serviceId], references: [serviceId], onDelete: Cascade)
+
+  @@index([serviceId, date])
+}
+
+model Vehicle {
+  id                 String            @id @default(cuid())
+  vehicleId          String            @unique
+  registrationNumber String?
+  routeNumber        String?
+  routeId            String?
+  tripId             String?
+  latitude           Float
+  longitude          Float
+  bearing            Float?
+  speed              Float?
+  currentStopId      String?
+  nextStopId         String?
+  timestamp          DateTime          @default(now())
+  status             String            @default("LIVE")
+  source             String            @default("BMTC")
+  rawPayload         String?
+  trip               Trip?             @relation(fields: [tripId], references: [id])
+  route              Route?            @relation(fields: [routeId], references: [id])
+  positions          VehiclePosition[]
+
+  @@index([vehicleId])
+  @@index([routeNumber])
+  @@index([routeId])
+  @@index([status])
+}
+
+model VehiclePosition {
+  id        String   @id @default(cuid())
+  vehicleId String
+  latitude  Float
+  longitude Float
+  bearing   Float?
+  speed     Float?
+  timestamp DateTime @default(now())
+  vehicle   Vehicle  @relation(fields: [vehicleId], references: [vehicleId], onDelete: Cascade)
+
+  @@index([vehicleId, timestamp])
+}
+
+model Fare {
+  id          String  @id @default(cuid())
+  routeId     String?
+  originStage String?
+  destStage   String?
+  fareAmount  Float
+  currency    String  @default("INR")
+  route       Route?  @relation(fields: [routeId], references: [id], onDelete: Cascade)
+}
+
+model DataSource {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  url       String?
+  version   String?
+  type      String
+  status    String   @default("ACTIVE")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model DataImport {
+  id           String   @id @default(cuid())
+  sourceName   String
+  version      String
+  downloadedAt DateTime
+  processedAt  DateTime
+  recordCounts String
+  checksum     String?
+  status       String
+  report       String?
+}
+
+model RealtimeSnapshot {
+  id           String   @id @default(cuid())
+  timestamp    DateTime @default(now())
+  provider     String
+  vehicleCount Int
+  latencyMs    Int
+  status       String
+  error        String?
+}
+
+model ETA {
+  id           String   @id @default(cuid())
+  vehicleId    String?
+  routeId      String
+  stopId       String
+  etaTimestamp DateTime
+  distance     Float?
+  source       String   @default("SCHEDULED")
+  timestamp    DateTime @default(now())
+  stop         Stop     @relation(fields: [stopId], references: [id], onDelete: Cascade)
+  route        Route    @relation(fields: [routeId], references: [id], onDelete: Cascade)
+
+  @@index([stopId])
+  @@index([routeId])
+}

@@ -1,0 +1,15 @@
+{
+  "name": "namma-route",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "data:import": "npm --prefix backend run data:import",
+    "data:refresh": "npm --prefix backend run data:refresh",
+    "data:validate": "npm --prefix backend run data:validate",
+    "data:stats": "npm --prefix backend run data:stats",
+    "data:completeness": "npm --prefix backend run data:completeness",
+    "backend:dev": "npm --prefix backend run dev",
+    "frontend:dev": "npm --prefix frontend run dev",
+    "test": "npm --prefix backend run test"
+  }
+}

@@ -310,7 +310,6 @@ describe('Current Stop Detection & Route Search Normalization Tests', () => {
       expect(r1?.id).toBe(r2?.id);
     });
   });
-});
 
   describe('Part 4: GPS Jitter Hysteresis & Stationary Bus / Bearing 0 Robustness', () => {
     const testOptions = { matchRadiusMeters: 75, approachRadiusMeters: 250, hysteresisSeconds: 30 };
@@ -468,14 +467,15 @@ describe('Current Stop Detection & Route Search Normalization Tests', () => {
         lastStopStatus: 'AT_STOP' as const,
       };
 
-      // Bus accelerated to 32 km/h and is 140m away (> 112.5m hysteresis radius)
-      const latOffset = 0.0013; // ~140m away towards Maharani College
+      // Bus accelerated to 32 km/h and moved 160m away towards Maharani College (Stop 3 is south-east)
+      const latTowardsStop3 = sampleStops[1].latitude - 0.0006;
+      const lonTowardsStop3 = sampleStops[1].longitude + 0.0014;
       const result = currentStopService.detectStop(
         {
           id: 'bus-departed',
-          latitude: sampleStops[1].latitude + latOffset,
-          longitude: sampleStops[1].longitude,
-          bearing: 110,
+          latitude: latTowardsStop3,
+          longitude: lonTowardsStop3,
+          bearing: 115,
           speed: 32, // Clearly moving at transit speed
         },
         sampleStops,
@@ -549,3 +549,5 @@ describe('Current Stop Detection & Route Search Normalization Tests', () => {
       expect(result.currentStop?.stopId).toBe('c2');
     });
   });
+});
+
